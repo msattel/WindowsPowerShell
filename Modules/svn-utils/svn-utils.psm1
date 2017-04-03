@@ -57,28 +57,41 @@ function Get-SvnChangeLogCommand([string]$revision, [string]$url, [string]$newLo
 }
 
 function Set-NewSvnLogMessage([string]$revision, [string]$Url, [string]$logfilepath, [string]$newLogMessage) {
-    Write-Host "Revision: $revision Log Messag: $newLogmessage, URL: $Url, Logfilepath: $logfilepath"
-    Write-Host "Executing command svn propset -r $revision --revprop svn:log $newLogMessage $Url "
+    #Write-Host "Revision: $revision Log Messag: $newLogmessage, URL: $Url, Logfilepath: $logfilepath"
+    #Write-Host "Executing command svn propset -r $revision --revprop svn:log $newLogMessage $Url "
     Add-Content $logfilepath -value "Executing command svn propset -r $revision --revprop svn:log $message $Url "
 }
 
-function Write-SvnAllCommentChanges($Url="https://scm.adesso.de/scm/svn/PSLife/core", $StartRevision, $EndRevision, $LogfilePath=$Logfile) {
+function Write-SvnAllCommentChanges($Url="https://scm.adesso.de/scm/svn/PSLife/core", $StartRevision, $EndRevision, $LogfilePath=$Logfile, $CommandOutputLog, [bool]$ExecuteFlag) {
     #Write-Host "Url $Url Logfile $LogfilePath StartRevision $StartRevision endRev  $EndRevision"
-    $revisions = Get-AllRevisions -Url $Url -StartRevision $StartRevision -EndRevision $EndRevision
-    foreach($rev in $revisions) {
+    #$revisions = Get-AllRevisions -Url $Url -StartRevision $StartRevision -EndRevision $EndRevision
+    #foreach($rev in $revisions) {
 	#Write-Host "Teste Revision $rev"
-	$oldLogMessage = Get-SvnLogMessage($rev)
-	if (Is-LogMessageToBeUpdated -LogMessage $oldLogMessage) {
+#	$oldLogMessage = Get-SvnLogMessage($rev)
+#	if (Is-LogMessageToBeUpdated -LogMessage $oldLogMessage) {
 	    #Write-Host "Revision $rev log wird geändert"
-	    $newLogMessage = Write-NewSvnLogMessage($oldLogMessage)
-	    Add-Content $LogfilePath -value "`nRevision: $rev `nOld Log message: $oldlogmessage`nNew Log message: $newLogMessage`n`n"
-	    $logChange = new-object psobject -Property @{
-		Revision = $rev
-		OldLogMessage = $oldLogMessage
-		NewLogMessage = $newLogMessage
-	    }
+#	    $newLogMessage = Write-NewSvnLogMessage($oldLogMessage)
+#	    Add-Content $LogfilePath -value "`nRevision: $rev `nOld Log message: $oldlogmessage`nNew Log message: $newLogMessage`n`n"
+#	    $logChange = new-object psobject -Property @{
+#		Revision = $rev
+#		OldLogMessage = $oldLogMessage
+#		NewLogMessage = $newLogMessage
+#	    }
 	    #Write-Host ($logChange | Format-Table Revision,OldLogMessage,NewLogMessage)
-	    Set-NewSvnLogMessage $rev $Url $LogfilePath $newLogMessage
+#	    Set-NewSvnLogMessage $rev $Url $LogfilePath $newLogMessage
+#	}
+ #   }
+
+    $listOfChanges = Export-SvnCommentChanges -StartRevision $StartRevision -EndRevision $EndRevision -Url $Url -LogfilePath $LogfilePath -OutputFile $CommandOutputLog
+
+    foreach($change in $listOfChanges) {
+	$command = ($change | Select -ExpandProperty "SvnCommand")
+	Add-Content $LogfilePath -value "Executing log change command: $command"
+	if ($ExecuteFlag) {
+	    #$revision = ($change | Select -ExpandProperty "Revision")
+	    #$newLogMessage = ($change | Select -ExpandProperty "NewLogMessage")
+	    iex "& $command"
+	    #	iex "& svn propset -r $revision --revprop svn:log ""$newLogMessage"" $Url "
 	}
     }
 }
@@ -93,8 +106,8 @@ function Export-SvnCommentChanges($Url="https://scm.adesso.de/scm/svn/PSLife/cor
 	    #Write-Host "Revision $rev log wird geändert"
 	    $newLogMessage = Write-NewSvnLogMessage -OldLogMessage $oldLogMessage -SearchPattern $SearchPattern -OldString $OldString -NewString $NewString
 	    $svnCommand = Get-SvnChangeLogCommand -revision $rev -url $Url -newLogMessage $newLogMessage
-	    Add-Content $LogfilePath -value "`nRevision: $rev `nOld Log message: $oldLogMessage`nNew Log message: $newLogMessage`n`n"
-	    Write-Host "Revision $rev Old: $oldLogMessage New: $newLogMessage Command: $svnCommand"
+	    Add-Content $LogfilePath -value "`nGenerated Change for revision: $rev `nOld Log message: $oldLogMessage`nNew Log message: $newLogMessage`n`n"
+	    # Write-Host "Revision $rev Old: $oldLogMessage New: $newLogMessage Command: $svnCommand"
 	    $logChange = new-object psobject -Property @{
 		Revision = $rev
 		OldLogMessage = $oldLogMessage
